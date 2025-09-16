@@ -3,7 +3,51 @@ spring:
     name: attack-on-monday-backend
 
 server:
-  port: 8080
+  port: ${SERVER_PORT}
+
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME}
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME}
+    dialect: ${SPRING_DATASOURCE_DIALECT}
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: ${SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL}
+    open-in-view: ${SPRING_JPA_OPEN_IN_VIEW}
+    database: ${SPRING_JPA_DATABASE}
+    show-sql: ${SPRING_JPA_SHOW_SQL}
+    generate-ddl: ${SPRING_JPA_GENERATE_DDL}
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO}
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT}
+      password: ${SPRING_DATA_REDIS_PASSWORD}
+
+cors:
+  allow:
+    origins: ${CORS_ALLOWED_ORIGINS}
+
+kakao:
+  login-url: ${KAKAO_LOGIN_URL}
+  client-id: ${KAKAO_CLIENT_ID}
+  redirect-uri: ${KAKAO_REDIRECT_URI}
+  token-request-uri: ${KAKAO_TOKEN_REQUEST_URI}
+  user-info-request-uri: ${KAKAO_USER_INFO_REQUEST_URI}
 
 springdoc:
   api-docs:
@@ -16,7 +60,7 @@ springdoc:
     operations-sorter: method
 
 ---
-# ?? ???(prod)?? Swagger ?? (??)
+
 spring:
   config:
     activate:
