@@ -1,5 +1,8 @@
 package com.example.attack_on_monday_backend.github_authentication.service;
 
+import com.example.attack_on_monday_backend.account.entity.Account;
+import com.example.attack_on_monday_backend.account_profile.entity.AccountProfile;
+import com.example.attack_on_monday_backend.account_profile.repository.AccountProfileRepository;
 import com.example.attack_on_monday_backend.github_authentication.entity.GithubAccessToken;
 import com.example.attack_on_monday_backend.github_authentication.entity.GithubEmail;
 import com.example.attack_on_monday_backend.github_authentication.entity.GithubNickname;
@@ -17,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -33,6 +37,7 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
     private final String userInfoRequestUri;
 
     private final RestTemplate restTemplate;
+    private final AccountProfileRepository accountProfileRepository;
 
     public GithubAuthenticationServiceImpl(
             @Value("${github.login-url}") String loginUrl,
@@ -41,7 +46,7 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
             @Value("${github.client-secret}") String clientSecret,
             @Value("${github.token-request-uri}") String tokenRequestUri,
             @Value("${github.user-info-request-uri}") String userInfoRequestUri,
-            RestTemplate restTemplate) {
+            RestTemplate restTemplate, AccountProfileRepository accountProfileRepository) {
 
         this.loginUrl = loginUrl;
         this.clientId = clientId;
@@ -53,6 +58,7 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
         this.userInfoRequestUri = userInfoRequestUri;
 
         this.restTemplate = restTemplate;
+        this.accountProfileRepository = accountProfileRepository;
     }
 
     @Override
@@ -81,6 +87,14 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
         );
 
         log.info("email: {}, nickname: {}", email.getValue(), nickname.getValue());
+
+        Optional<AccountProfile> maybeProfile = accountProfileRepository.findWithAccountByEmail(email.getValue());
+        Account account = null;
+
+        if (maybeProfile.isPresent()) {
+            account = maybeProfile.get().getAccount();
+            log.info("account (existing): {}", account);
+        }
 
         return null;
     }
