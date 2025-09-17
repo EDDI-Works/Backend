@@ -2,6 +2,7 @@ package com.example.attack_on_monday_backend.github_authentication.controller;
 
 import com.example.attack_on_monday_backend.github_authentication.controller.response_form.GithubLoginResponseForm;
 import com.example.attack_on_monday_backend.github_authentication.service.GithubAuthenticationService;
+import com.example.attack_on_monday_backend.github_authentication.service.response.GithubLoginResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,7 +28,7 @@ public class GithubAuthenticationController {
         log.info("Github Login Request");
 
         try {
-            githubAuthenticationService.handleLogin(code);
+            GithubLoginResponse loginResponse = githubAuthenticationService.handleLogin(code);
             return null;
         } catch (Exception e) {
             log.error("Github 로그인 에러", e);

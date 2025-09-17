@@ -91,12 +91,12 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
         Optional<AccountProfile> maybeProfile = accountProfileRepository.findWithAccountByEmail(email.getValue());
         Account account = null;
 
-        if (maybeProfile.isPresent()) {
-            account = maybeProfile.get().getAccount();
-            log.info("account (existing): {}", account);
-        }
+        boolean isNewUser = maybeProfile.isEmpty();
+        Long accountId = isNewUser
+                ? 0
+                : maybeProfile.get().getAccount().getId();
 
-        return null;
+        return GithubLoginResponse.from(isNewUser, accessToken.getValue(), nickname.getValue(), email.getValue(), accountId);
     }
 
     private Map<String, Object> getAccessToken(String code) {
