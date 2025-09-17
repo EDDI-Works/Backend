@@ -24,13 +24,13 @@ public class GithubAuthenticationController {
 
     @GetMapping("/login")
     public GithubLoginResponseForm githubLogin(@RequestParam("code") String code) throws Exception {
-        log.info("Kakao Login Request");
+        log.info("Github Login Request");
 
         try {
             githubAuthenticationService.handleLogin(code);
             return null;
         } catch (Exception e) {
-            log.error("Kakao 로그인 에러", e);
+            log.error("Github 로그인 에러", e);
             return null;
         }
     }
