@@ -11,4 +11,7 @@ import java.util.Optional;
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query("SELECT p FROM Project p JOIN FETCH p.writer ORDER BY p.id DESC")
     Page<Project> findAllWithWriter(Pageable pageable);
+
+    @Query("SELECT p FROM Project p JOIN FETCH p.writer WHERE p.id = :projectId")
+    Optional<Project> findByIdWithWriter(Long projectId);
 }
