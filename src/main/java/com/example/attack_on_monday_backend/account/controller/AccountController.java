@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -34,6 +36,16 @@ public class AccountController {
         Account account = accountService.createAccount(requestForm.toRegisterNormalAccountRequest());
         accountProfileService.createAccountProfile(account, requestForm.toRegisterAccountProfileRequest());
 
-        return null;
+        String userToken = issueUserToken(account.getId(), accessToken);
+        redisCacheService.deleteByKey(temporaryUserToken);
+
+        return userToken;
+    }
+
+    private String issueUserToken(Long accountId, String accessToken) {
+        String userToken = UUID.randomUUID().toString();
+        redisCacheService.setKeyAndValue(accountId, accessToken);
+        redisCacheService.setKeyAndValue(userToken, accountId);
+        return userToken;
     }
 }
