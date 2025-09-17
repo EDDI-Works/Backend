@@ -65,4 +65,9 @@ public class RedisCacheServiceImpl implements RedisCacheService {
             throw new IllegalArgumentException("값을 " + clazz.getSimpleName() + "로 변환할 수 없습니다.", e);
         }
     }
+
+    @Override
+    public void deleteByKey(String key) {
+        redisTemplate.delete(key);
+    }
 }
