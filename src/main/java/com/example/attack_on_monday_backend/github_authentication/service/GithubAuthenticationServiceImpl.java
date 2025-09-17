@@ -11,6 +11,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,6 +26,8 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
     private final String clientSecret;
     private final String tokenRequestUri;
 
+    private final String userInfoRequestUri;
+
     private final RestTemplate restTemplate;
 
     public GithubAuthenticationServiceImpl(
@@ -33,6 +36,7 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
             @Value("${github.redirect-uri}") String redirectUri,
             @Value("${github.client-secret}") String clientSecret,
             @Value("${github.token-request-uri}") String tokenRequestUri,
+            @Value("${github.user-info-request-uri}") String userInfoRequestUri,
             RestTemplate restTemplate) {
 
         this.loginUrl = loginUrl;
@@ -41,6 +45,8 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
 
         this.clientSecret = clientSecret;
         this.tokenRequestUri = tokenRequestUri;
+
+        this.userInfoRequestUri = userInfoRequestUri;
 
         this.restTemplate = restTemplate;
     }
@@ -58,6 +64,21 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
     public GithubLoginResponse handleLogin(String code) {
         Map<String, Object> tokenResponse = getAccessToken(code);
         String accessToken = (String) tokenResponse.get("access_token");
+
+        Map<String, Object> userInfo = getUserInfo(accessToken);
+
+        String email = (String) userInfo.get("email");
+        if (email == null || email.isBlank()) {
+            if (email == null) throw new IllegalArgumentException("이메일이 없습니다.");
+        }
+
+        String nickname = (String) userInfo.get("name");
+        if (nickname == null || nickname.isBlank()) {
+            nickname = (String) userInfo.get("login");
+            if (nickname == null) nickname = "github_user";
+        }
+
+        log.info("email: {}, nickname: {}", email, nickname);
 
         return null;
     }
@@ -92,6 +113,39 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
         } catch (Exception e) {
             log.error("GitHub OAuth 토큰 발급 실패: {}", e.getMessage(), e);
             throw new RuntimeException("GitHub 토큰 발급 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private Map<String, Object> getUserInfo(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    userInfoRequestUri,
+                    HttpMethod.GET,
+                    entity,
+                    Map.class
+            );
+
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw new IllegalStateException("GitHub 사용자 정보 요청 실패: " + response.getStatusCode());
+            }
+
+            Map<String, Object> body = response.getBody();
+
+            if (!body.containsKey("id") || !body.containsKey("login")) {
+                throw new IllegalStateException("GitHub 사용자 정보에 필요한 필드가 없습니다: " + body);
+            }
+
+            return body;
+
+        } catch (Exception e) {
+            log.error("GitHub 사용자 정보 요청 실패: {}", e.getMessage(), e);
+            throw new RuntimeException("GitHub 사용자 정보 조회 중 오류가 발생했습니다.", e);
         }
     }
 }
