@@ -10,4 +10,7 @@ import java.util.Optional;
 public interface AccountProfileRepository extends JpaRepository<AccountProfile, Long> {
     @Query("SELECT ap FROM AccountProfile ap WHERE ap.email = :email")
     Optional<AccountProfile> findWithAccountByEmail(@Param("email") String email);
+
+    boolean existsByEmail(String email);
+    boolean existsByNickname(String nickname);
 }

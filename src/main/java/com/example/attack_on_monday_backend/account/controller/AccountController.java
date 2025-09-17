@@ -3,6 +3,7 @@ package com.example.attack_on_monday_backend.account.controller;
 import com.example.attack_on_monday_backend.account.controller.request_form.RegisterNormalAccountRequestForm;
 import com.example.attack_on_monday_backend.account.entity.Account;
 import com.example.attack_on_monday_backend.account.service.AccountService;
+import com.example.attack_on_monday_backend.account_profile.service.AccountProfileService;
 import com.example.attack_on_monday_backend.redis_cache.service.RedisCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +17,7 @@ public class AccountController {
 
     private final AccountService accountService;
     private final RedisCacheService redisCacheService;
+    private final AccountProfileService accountProfileService;
 
     @PostMapping("/register")
     public String register(@RequestHeader("Authorization") String authorizationHeader,
@@ -30,6 +32,7 @@ public class AccountController {
         }
 
         Account account = accountService.createAccount(requestForm.toRegisterNormalAccountRequest());
+        accountProfileService.createAccountProfile(account, requestForm.toRegisterAccountProfileRequest());
 
         return null;
     }
