@@ -1,6 +1,8 @@
 package com.example.attack_on_monday_backend.github_authentication.service;
 
 import com.example.attack_on_monday_backend.github_authentication.entity.GithubAccessToken;
+import com.example.attack_on_monday_backend.github_authentication.entity.GithubEmail;
+import com.example.attack_on_monday_backend.github_authentication.entity.GithubNickname;
 import com.example.attack_on_monday_backend.github_authentication.service.response.GithubLoginResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,19 +72,15 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
 
         Map<String, Object> userInfo = getUserInfo(accessToken.getValue());
 
-        String email = (String) userInfo.get("email");
-        if (email == null || email.isBlank()) {
-            email = getPrimaryEmail(accessToken.getValue());
-            if (email == null) throw new IllegalArgumentException("이메일이 없습니다.");
-        }
+        GithubEmail email = new GithubEmail(
+                userInfo.get("email") != null ? (String) userInfo.get("email") : getPrimaryEmail(accessToken.getValue())
+        );
 
-        String nickname = (String) userInfo.get("name");
-        if (nickname == null || nickname.isBlank()) {
-            nickname = (String) userInfo.get("login");
-            if (nickname == null) nickname = "github_user";
-        }
+        GithubNickname nickname = new GithubNickname(
+                userInfo.get("name") != null ? (String) userInfo.get("name") : (String) userInfo.get("login")
+        );
 
-        log.info("email: {}, nickname: {}", email, nickname);
+        log.info("email: {}, nickname: {}", email.getValue(), nickname.getValue());
 
         return null;
     }

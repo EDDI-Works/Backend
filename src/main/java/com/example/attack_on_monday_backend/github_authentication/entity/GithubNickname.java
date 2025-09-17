@@ -1,0 +1,16 @@
+package com.example.attack_on_monday_backend.github_authentication.entity;
+
+import lombok.Getter;
+
+@Getter
+public class GithubNickname {
+    private final String value;
+
+    public GithubNickname(String value) {
+        if (value == null || value.isBlank()) {
+            this.value = "github_user"; // 기본 닉네임
+        } else {
+            this.value = value;
+        }
+    }
+}
