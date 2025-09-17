@@ -3,6 +3,7 @@ package com.example.attack_on_monday_backend.github_authentication.service;
 import com.example.attack_on_monday_backend.github_authentication.service.response.GithubLoginResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -69,6 +70,7 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
 
         String email = (String) userInfo.get("email");
         if (email == null || email.isBlank()) {
+            email = getPrimaryEmail(accessToken);
             if (email == null) throw new IllegalArgumentException("이메일이 없습니다.");
         }
 
@@ -146,6 +148,39 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
         } catch (Exception e) {
             log.error("GitHub 사용자 정보 요청 실패: {}", e.getMessage(), e);
             throw new RuntimeException("GitHub 사용자 정보 조회 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private String getPrimaryEmail(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        try {
+            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+                    "https://api.github.com/user/emails",
+                    HttpMethod.GET,
+                    entity,
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                throw new IllegalStateException("GitHub 이메일 조회 실패: " + response.getStatusCode());
+            }
+
+            List<Map<String, Object>> emailList = response.getBody();
+
+            return emailList.stream()
+                    .filter(e -> Boolean.TRUE.equals(e.get("primary")))
+                    .map(e -> (String) e.get("email"))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("기본 이메일을 찾을 수 없습니다."));
+
+        } catch (Exception e) {
+            log.error("GitHub 기본 이메일 조회 실패: {}", e.getMessage(), e);
+            throw new RuntimeException("GitHub 기본 이메일 조회 중 오류가 발생했습니다.", e);
         }
     }
 }
