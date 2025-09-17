@@ -4,17 +4,24 @@ import com.example.attack_on_monday_backend.account.entity.Account;
 import com.example.attack_on_monday_backend.account.repository.AccountRepository;
 import com.example.attack_on_monday_backend.account_profile.entity.AccountProfile;
 import com.example.attack_on_monday_backend.account_profile.repository.AccountProfileRepository;
+import com.example.attack_on_monday_backend.agile_board.entity.AgileBoard;
+import com.example.attack_on_monday_backend.agile_board.repository.AgileBoardRepository;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import com.example.attack_on_monday_backend.project.repository.ProjectRepository;
 import com.example.attack_on_monday_backend.project.service.request.CreateProjectRequest;
 import com.example.attack_on_monday_backend.project.service.request.ListProjectRequest;
 import com.example.attack_on_monday_backend.project.service.response.CreateProjectResponse;
 import com.example.attack_on_monday_backend.project.service.response.ListProjectResponse;
+import com.example.attack_on_monday_backend.project.service.response.ReadProjectResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Optional;
 
 
 @Slf4j
@@ -23,6 +30,8 @@ import org.springframework.stereotype.Service;
 public class ProjectServiceImpl implements ProjectService {
 
     final private ProjectRepository projectRepository;
+    final private AgileBoardRepository agileBoardRepository;
+
     final private AccountRepository accountRepository;
     final private AccountProfileRepository accountProfileRepository;
 
@@ -51,5 +60,23 @@ public class ProjectServiceImpl implements ProjectService {
 
         Project savedProject = projectRepository.save(createProjectRequest.toProject(accountProfile));
         return CreateProjectResponse.from(savedProject);
+    }
+
+    @Override
+    public ReadProjectResponse read(Long projectId, Integer page, Integer perPage) {
+        Optional<Project> maybeProject = projectRepository.findByIdWithWriter(projectId);
+
+        if (maybeProject.isEmpty()) {
+            log.info("정보가 없습니다!");
+            return null;
+        }
+
+        Project project = maybeProject.get();
+
+        Pageable pageable = PageRequest.of(page - 1, perPage);
+        Page<AgileBoard> paginatedAgileBoard = agileBoardRepository.findAllByProjectId(projectId, pageable);
+
+        return ReadProjectResponse.from(project, paginatedAgileBoard.getContent(),
+                paginatedAgileBoard.getTotalElements(), paginatedAgileBoard.getTotalPages());
     }
 }

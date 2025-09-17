@@ -4,8 +4,10 @@ import com.example.attack_on_monday_backend.project.service.request.CreateProjec
 import com.example.attack_on_monday_backend.project.service.request.ListProjectRequest;
 import com.example.attack_on_monday_backend.project.service.response.CreateProjectResponse;
 import com.example.attack_on_monday_backend.project.service.response.ListProjectResponse;
+import com.example.attack_on_monday_backend.project.service.response.ReadProjectResponse;
 
 public interface ProjectService {
     ListProjectResponse list(ListProjectRequest request);
     CreateProjectResponse register(CreateProjectRequest createProjectRequest);
+    ReadProjectResponse read(Long projectId, Integer page, Integer perPage);
 }
