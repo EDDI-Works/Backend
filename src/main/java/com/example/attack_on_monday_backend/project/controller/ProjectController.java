@@ -1,8 +1,11 @@
 package com.example.attack_on_monday_backend.project.controller;
 
+import com.example.attack_on_monday_backend.project.controller.request_form.CreateProjectRequestForm;
 import com.example.attack_on_monday_backend.project.controller.request_form.ListProjectRequestForm;
+import com.example.attack_on_monday_backend.project.controller.response_form.CreateProjectResponseForm;
 import com.example.attack_on_monday_backend.project.controller.response_form.ListProjectResponseForm;
 import com.example.attack_on_monday_backend.project.service.ProjectService;
+import com.example.attack_on_monday_backend.project.service.response.CreateProjectResponse;
 import com.example.attack_on_monday_backend.project.service.response.ListProjectResponse;
 import com.example.attack_on_monday_backend.redis_cache.service.RedisCacheService;
 import lombok.RequiredArgsConstructor;
@@ -41,5 +44,22 @@ public class ProjectController {
                 response.getTotalItems(),
                 response.getTotalPages()
         );
+    }
+
+    @PostMapping("/register")
+    public CreateProjectResponseForm registerProject (
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody CreateProjectRequestForm createProjectRequestForm) {
+        log.info("registerProject() -> {}", createProjectRequestForm);
+        log.info("authorizationHeader -> {}", authorizationHeader);
+
+        String userToken = authorizationHeader.replace("Bearer ", "").trim();
+
+        Long accountId = redisCacheService.getValueByKey(userToken, Long.class);
+        log.info("accountId -> {}", accountId);
+
+        CreateProjectResponse response = projectService.register(createProjectRequestForm.toCreateProjectRequest(accountId));
+
+        return CreateProjectResponseForm.from(response);
     }
 }

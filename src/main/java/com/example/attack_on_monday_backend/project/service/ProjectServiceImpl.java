@@ -1,8 +1,14 @@
 package com.example.attack_on_monday_backend.project.service;
 
+import com.example.attack_on_monday_backend.account.entity.Account;
+import com.example.attack_on_monday_backend.account.repository.AccountRepository;
+import com.example.attack_on_monday_backend.account_profile.entity.AccountProfile;
+import com.example.attack_on_monday_backend.account_profile.repository.AccountProfileRepository;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import com.example.attack_on_monday_backend.project.repository.ProjectRepository;
+import com.example.attack_on_monday_backend.project.service.request.CreateProjectRequest;
 import com.example.attack_on_monday_backend.project.service.request.ListProjectRequest;
+import com.example.attack_on_monday_backend.project.service.response.CreateProjectResponse;
 import com.example.attack_on_monday_backend.project.service.response.ListProjectResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +23,8 @@ import org.springframework.stereotype.Service;
 public class ProjectServiceImpl implements ProjectService {
 
     final private ProjectRepository projectRepository;
+    final private AccountRepository accountRepository;
+    final private AccountProfileRepository accountProfileRepository;
 
     @Override
     public ListProjectResponse list(ListProjectRequest request) {
@@ -25,5 +33,23 @@ public class ProjectServiceImpl implements ProjectService {
         Page<Project> boardPage = projectRepository.findAllWithWriter(pageRequest);
 
         return ListProjectResponse.from(boardPage.getContent(), boardPage.getTotalElements(), boardPage.getTotalPages());
+    }
+
+    @Override
+    public CreateProjectResponse register(CreateProjectRequest createProjectRequest) {
+        log.info("accountId: {}", createProjectRequest.getAccountId());
+
+        Account account = accountRepository.findById(createProjectRequest.getAccountId())
+                .orElseThrow(() -> new RuntimeException("Account 존재하지 않음"));
+
+        log.info("account: {}", account);
+
+        AccountProfile accountProfile = accountProfileRepository.findByAccount(account)
+                .orElseThrow(() -> new RuntimeException("AccountProfile not found"));
+
+        log.info("account profile: {}", accountProfile);
+
+        Project savedProject = projectRepository.save(createProjectRequest.toProject(accountProfile));
+        return CreateProjectResponse.from(savedProject);
     }
 }
