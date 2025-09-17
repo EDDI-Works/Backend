@@ -1,5 +1,6 @@
 package com.example.attack_on_monday_backend.github_authentication.service;
 
+import com.example.attack_on_monday_backend.github_authentication.entity.GithubAccessToken;
 import com.example.attack_on_monday_backend.github_authentication.service.response.GithubLoginResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -63,14 +64,15 @@ public class GithubAuthenticationServiceImpl implements GithubAuthenticationServ
 
     @Override
     public GithubLoginResponse handleLogin(String code) {
-        Map<String, Object> tokenResponse = getAccessToken(code);
-        String accessToken = (String) tokenResponse.get("access_token");
+        GithubAccessToken accessToken = new GithubAccessToken(
+                (String) getAccessToken(code).get("access_token")
+        );
 
-        Map<String, Object> userInfo = getUserInfo(accessToken);
+        Map<String, Object> userInfo = getUserInfo(accessToken.getValue());
 
         String email = (String) userInfo.get("email");
         if (email == null || email.isBlank()) {
-            email = getPrimaryEmail(accessToken);
+            email = getPrimaryEmail(accessToken.getValue());
             if (email == null) throw new IllegalArgumentException("이메일이 없습니다.");
         }
 
