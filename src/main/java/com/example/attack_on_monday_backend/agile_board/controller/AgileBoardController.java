@@ -1,8 +1,12 @@
 package com.example.attack_on_monday_backend.agile_board.controller;
 
+import com.example.attack_on_monday_backend.agile_board.controller.request_form.CreateAgileBoardRequestForm;
+import com.example.attack_on_monday_backend.agile_board.controller.response_form.CreateAgileBoardResponseForm;
 import com.example.attack_on_monday_backend.agile_board.controller.response_form.ReadAgileBoardResponseForm;
 import com.example.attack_on_monday_backend.agile_board.service.AgileBoardService;
+import com.example.attack_on_monday_backend.agile_board.service.response.CreateAgileBoardResponse;
 import com.example.attack_on_monday_backend.agile_board.service.response.ReadAgileBoardResponse;
+
 import com.example.attack_on_monday_backend.redis_cache.service.RedisCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,5 +39,25 @@ public class AgileBoardController {
 
         ReadAgileBoardResponse response = agileBoardService.read(agileBoardId, page, perPage);
         return ReadAgileBoardResponseForm.from(response);
+    }
+
+    @PostMapping("/register")
+    public CreateAgileBoardResponseForm registerAgileBoard (
+            @RequestHeader("Authorization") String authorizationHeader,
+            @RequestBody CreateAgileBoardRequestForm createAgileBoardRequestForm) {
+
+        log.info("registerAgileBoard() -> {}", createAgileBoardRequestForm);
+        log.info("authorizationHeader -> {}", authorizationHeader);
+
+        String userToken = authorizationHeader.replace("Bearer ", "").trim();
+
+        Long accountId = redisCacheService.getValueByKey(userToken, Long.class);
+        if (accountId == null) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        CreateAgileBoardResponse response = agileBoardService.register(createAgileBoardRequestForm.toCreateAgileBoardRequest(accountId));
+
+        return CreateAgileBoardResponseForm.from(response);
     }
 }
