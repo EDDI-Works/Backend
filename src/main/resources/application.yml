@@ -46,6 +46,14 @@ github:
   token-request-uri: ${GITHUB_TOKEN_REQUEST_URI}
   user-info-request-uri: ${GITHUB_USER_INFO_REQUEST_URI}
 
+frontend:
+  authentication:
+    origins: ${FRONTEND_AUTHENTICATION_ORIGINS}
+
+
+
+
+
 springdoc:
   api-docs:
     path: /v3/api-docs
