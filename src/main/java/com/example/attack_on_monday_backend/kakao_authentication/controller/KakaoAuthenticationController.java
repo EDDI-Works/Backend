@@ -21,6 +21,7 @@ public class KakaoAuthenticationController {
 
     @GetMapping("/link")
     public String linkKakaoAuthentication(){
+        log.info("카카오 로그인 링크 진입");
         return kakaoAuthenticationService.requestKakaoAuthenticationLink();
     }
 
