@@ -7,6 +7,7 @@ import com.example.attack_on_monday_backend.account_profile.service.AccountProfi
 import com.example.attack_on_monday_backend.config.FrontendConfig;
 import com.example.attack_on_monday_backend.kakao_authentication.service.response.ExistingUserKakaoLoginResponse;
 import com.example.attack_on_monday_backend.kakao_authentication.service.response.KakaoLoginResponse;
+import com.example.attack_on_monday_backend.redis_cache.service.RedisCacheService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -15,8 +16,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -31,6 +34,8 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
     private final FrontendConfig frontendConfig;
     private final RestTemplate restTemplate;
     private final AccountProfileRepository accountProfileRepository;
+    private final RedisCacheService redisCacheService;
+
 
 
     public KakaoAuthenticationServiceImpl(
@@ -42,7 +47,9 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
             RestTemplate restTemplate,
             AccountProfileService accountProfileService,
             FrontendConfig frontendConfig,
-            AccountProfileRepository accountProfileRepository) {
+            AccountProfileRepository accountProfileRepository,
+            RedisCacheService redisCacheService
+            ) {
         this.loginUrl = loginUrl;
         this.clientId = clientId;
         this.redirectUri = redirectUri;
@@ -52,6 +59,8 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
         this.accountProfileService = accountProfileService;
         this.frontendConfig = frontendConfig;
         this.accountProfileRepository = accountProfileRepository;
+        this.redisCacheService = redisCacheService;
+
     }
 
 
@@ -134,6 +143,7 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
 
     @Override
     public KakaoLoginResponse handleLogin(String code) {
+
         Map<String, Object> tokenResponse = getAccessToken(code);
         String accessToken = (String) tokenResponse.get("access_token");
 
@@ -141,14 +151,23 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
         String email = extractEmail(userInfo);
         String nickname = extractNickname(userInfo);
 
+        log.info("이메일 :  {}", email);
         Optional<AccountProfile> accountProfile = accountProfileRepository.findWithAccountByEmail(email);
 
-        boolean isNewUser = accountProfile.isEmpty();
-        Long accountId = accountProfile.get().getAccount().getId();
-        String orgin = frontendConfig.getOrigins().get(0);
-        KakaoLoginResponse kakaoLoginResponse =  new ExistingUserKakaoLoginResponse(false, accessToken, nickname, email, orgin);
 
-        return kakaoLoginResponse;
+
+        boolean isNewUser = accountProfile.isEmpty();
+
+        log.info("신규 회원 여부 : {}", isNewUser);
+
+        String origin = frontendConfig.getOrigins().get(0);
+
+        String token = isNewUser
+                ? createTemporaryUserTokenWithAccessToken(accessToken)
+                : createUserTokenWithAccessToken(accountProfile.get().getAccount().getId(), accessToken);
+
+        return KakaoLoginResponse.of(isNewUser, token, nickname, email, origin);
+
     }
 
     @Override
@@ -167,4 +186,28 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
                 .orElseThrow(() -> new IllegalArgumentException("카카오에서 받아온 이메일 정보가 없습니다."));
 
     }
+
+
+    private String createUserTokenWithAccessToken(Long accountId, String accessToken) {
+        try {
+            String userToken = UUID.randomUUID().toString();
+            redisCacheService.setKeyAndValue(accountId, accessToken);
+            redisCacheService.setKeyAndValue(userToken, accountId);
+            return userToken;
+        } catch (Exception e) {
+            throw new RuntimeException("Error storing token in Redis: " + e.getMessage());
+        }
+    }
+
+    private String createTemporaryUserTokenWithAccessToken(String accessToken) {
+        try {
+            String userToken = UUID.randomUUID().toString();
+            redisCacheService.setKeyAndValue(userToken, accessToken, Duration.ofMinutes(5));
+            return userToken;
+        } catch (Exception e) {
+            throw new RuntimeException("Error storing token in Redis: " + e.getMessage());
+        }
+    }
+
+
 }
