@@ -17,10 +17,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 
@@ -37,6 +39,7 @@ public class MeetingServiceImpl implements MeetingService {
     final private AccountProfileRepository accountProfileRepository;
 
     @Override
+    @Transactional
     public CreateMeetingResponse create(CreateMeetingRequest request) {
 
         log.info("CreateMeetingRequest= {}", request);
@@ -48,19 +51,20 @@ public class MeetingServiceImpl implements MeetingService {
         AccountProfile creator = accountProfileRepository.findById(request.getCreatorId())
                 .orElseThrow(()-> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
-        // 1. 프로젝트 로딩
-        if (request.getProjectId() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효한 projectId가 필요합니다.");
+        // 1. 프로젝트 로딩 + 개인 프로젝트 폴백
+        Project project = null;
+        if (request.getProjectId() != null) {
+            project = projectRepository.findById(request.getProjectId()).orElse(null);
         }
-        Project project = projectRepository.findById(request.getProjectId())
-                .orElseThrow(()-> new ResponseStatusException(HttpStatus.BAD_REQUEST, "유효한 projectId가 필요합니다."));
+        if (project == null) {
+            project = findOrCreatePersonalProject(creator);
+        }
 
         // 2. 기본값 수정(제목/시간)
         String title = (request.getTitle() == null || request.getTitle().isBlank())
                 ? "제목 없음" : request.getTitle();
         boolean allDay = Boolean.TRUE.equals(request.getAllDay());
-        java.time.ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
-
+        ZoneId KST = java.time.ZoneId.of("Asia/Seoul");
         LocalDateTime start = request.startAsLdt();
         LocalDateTime end = request.endAsLdt();
 
@@ -86,28 +90,23 @@ public class MeetingServiceImpl implements MeetingService {
             }
         }
 
-        // 미팅 저장
+        // 3. 미팅 저장
         Meeting meeting = request.toMeeting(creator, project);
+        meeting.setTitle(title);
+        meeting.setAllDay(allDay);
+        meeting.setStartTime(start);
+        meeting.setEndTime(end);
         meetingRepository.save(meeting);
 
-        // 4. 팀 연결 (팀이 여러개이면 participate 테이블 채움)
-        List<Long> teamIds = request.getTeamIds() == null ? List.of() : request.getTeamIds().stream().distinct().toList();
-        if (teamIds.size() >= 2) {
-            for (Long teamId : teamIds) {
-                MeetingParticipateTeam participateTeam = new MeetingParticipateTeam();
-                participateTeam.setMeeting(meeting);
-                participateTeam.setTeamId(teamId);
-                meetingParticipateTeamRepository.save(participateTeam);
-            }
-        }
-
-        // 5. Note(본문) 생성
+        // 4. Note(본문) 생성
         MeetingNote note = new MeetingNote();
         note.setMeeting(meeting);
-        note.setContent("### Notes\n\n");
+        if (note.getContent() == null) {
+            note.setContent("### Notes\n\n");
+        }
         meetingNoteRepository.save(note);
 
-        // 6. 참여자 등록
+        // 5. 참여자 등록
         // - 생성자 저장
         MeetingParticipant owner =  new MeetingParticipant();
         owner.setMeeting(meeting);
@@ -128,10 +127,33 @@ public class MeetingServiceImpl implements MeetingService {
                 });
             }
         }
+
+        // 6. 팀 연결 (팀이 여러개이면 participate 테이블 채움)
+        List<Long> teamIds = request.getTeamIds() == null ? List.of() : request.getTeamIds().stream().distinct().toList();
+        if (teamIds.size() >= 2) {
+            for (Long teamId : teamIds) {
+                MeetingParticipateTeam participateTeam = new MeetingParticipateTeam();
+                participateTeam.setMeeting(meeting);
+                participateTeam.setTeamId(teamId);
+                meetingParticipateTeamRepository.save(participateTeam);
+            }
+        }
+
         int participantCount = (request.getParticipantAccountIds() == null ? 0 :  request.getParticipantAccountIds().size())+1;
 
         return CreateMeetingResponse.from(meeting, note, participantCount);
     }
+
+    // 개인 프로젝트 조회 / 생성 헬퍼
+    private Project findOrCreatePersonalProject(AccountProfile owner) {
+        return projectRepository.findByWriterAndTitle(owner, "개인 프로젝트")
+                .orElseGet(() -> {
+                    Project project = new Project("개인 프로젝트", owner);
+                    return projectRepository.save(project);
+                });
+    }
+
+
     // 수정 서비스
     @Override
     public UpdateMeetingResponse update(String publicId, UpdateMeetingRequest request) {
