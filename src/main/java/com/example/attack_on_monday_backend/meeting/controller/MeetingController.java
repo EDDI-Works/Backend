@@ -39,11 +39,6 @@ public class MeetingController {
             throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
         }
 
-        // projectId가 반드시 포함되어야 함
-        if(requestForm.getProjectId() == null){
-            throw new IllegalArgumentException("projectId 필수");
-        }
-
         CreateMeetingResponse response = meetingService.create(requestForm.toCreateMeetingRequest(accountId));
 
         return ResponseEntity
@@ -73,7 +68,6 @@ public class MeetingController {
                 .status(HttpStatus.OK)
                 .body(UpdateMeetingResponseForm.from(response));
     }
-
 
 
 }

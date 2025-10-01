@@ -16,5 +16,5 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     @Query("SELECT p FROM Project p JOIN FETCH p.writer WHERE p.id = :projectId")
     Optional<Project> findByIdWithWriter(Long projectId);
 
-    Optional<Project> findByWriterAndTitle(AccountProfile owner, String title);
+    Optional<Project> findByWriterAndTitle(AccountProfile writer, String title);
 }

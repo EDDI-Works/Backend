@@ -145,10 +145,10 @@ public class MeetingServiceImpl implements MeetingService {
     }
 
     // 개인 프로젝트 조회 / 생성 헬퍼
-    private Project findOrCreatePersonalProject(AccountProfile owner) {
-        return projectRepository.findByWriterAndTitle(owner, "개인 프로젝트")
+    private Project findOrCreatePersonalProject(AccountProfile writer) {
+        return projectRepository.findByWriterAndTitle(writer, "개인 프로젝트")
                 .orElseGet(() -> {
-                    Project project = new Project("개인 프로젝트", owner);
+                    Project project = new Project("개인 프로젝트", writer);
                     return projectRepository.save(project);
                 });
     }
@@ -156,21 +156,28 @@ public class MeetingServiceImpl implements MeetingService {
 
     // 수정 서비스
     @Override
+    @Transactional
     public UpdateMeetingResponse update(String publicId, UpdateMeetingRequest request) {
 
-        // 대상 회의
+        // 1. 대상 회의 조회
         Meeting meeting = meetingRepository.findByPublicId(publicId)
                 .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND,"해당 미팅을 찾을 수 없습니다."));
 
-        // 권한, 잠금
+        // 2. 권한 및 잠금 체크
         assertEditable(meeting, request.getAccountId());
 
-        // 버전 일치 체크
+        // 3. 버전 일치 체크
         if (request.getMeetingVersion() != null && !request.getMeetingVersion().equals(meeting.getVersion())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "미팅 버전이 맞지 않습니다.");
         }
 
-        // 메타 필드 부분 수정
+        // 개인 프로젝트 폴백(meeting의 project가 사라졌거나 null인 경우)
+        if (meeting.getProject() == null || !projectRepository.existsById(meeting.getProject().getId())) {
+            Project fallbackProject = findOrCreatePersonalProject(meeting.getCreator());
+            meeting.setProject(fallbackProject);
+        }
+
+        // 4. 메타 필드 부분 수정
         if (request.getTitle() != null){
             meeting.setTitle(request.getTitle());
         }
@@ -184,18 +191,27 @@ public class MeetingServiceImpl implements MeetingService {
             meeting.setEndTime(LocalDateTime.parse(request.getEnd()));
         }
 
-        // 시간 검증 (allDay=false인 경우만)
-        if (!meeting.isAllDay()) {
+        // allDay true일 때 종료 시간 null 방지
+        if (meeting.isAllDay()) {
+            if (meeting.getStartTime() == null) {
+                meeting.setStartTime(LocalDate.now(ZoneId.of("Asia/Seoul")).atStartOfDay());
+            }
+            if (meeting.getEndTime() == null) {
+                meeting.setEndTime(meeting.getStartTime().toLocalDate().atTime(23, 59, 59));
+            }
+        } else {
+            // 시간 검증
             if (meeting.getStartTime() == null || meeting.getEndTime() == null || !meeting.getStartTime().isBefore(meeting.getEndTime())) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "start must be < end");
             }
         }
 
-        // 팀 재설정
+        // 5. 팀 재설정
         if (request.getTeamIds() != null) {
             List<Long> distinct = request.getTeamIds().stream().distinct().toList();
             meeting.setMainTeamId(distinct.isEmpty() ? null : distinct.get(0));
             meetingParticipateTeamRepository.deleteAllByMeetingId(meeting.getId());
+
             for (Long teamId : distinct) {
                 MeetingParticipateTeam pt = new MeetingParticipateTeam();
                 pt.setMeeting(meeting);
@@ -204,20 +220,22 @@ public class MeetingServiceImpl implements MeetingService {
             }
         }
 
-        // 참여자 재설정
+        // 6. 참여자 재설정
         if (request.getParticipantAccountIds() != null) {
             meetingParticipantRepository.deleteAllByMeetingId(meeting.getId());
 
+            // 생성자 다시 등록
             MeetingParticipant owner = new MeetingParticipant();
             owner.setMeeting(meeting);
             owner.setAccount(meeting.getCreator());
             owner.setParticipantRole(ParticipantRole.OWNER);
             meetingParticipantRepository.save(owner);
 
+            // 멤버 등록
             for (Long aid : request.getParticipantAccountIds().stream().distinct().toList()) {
                 if (Objects.equals(aid, meeting.getCreator().getId())) continue;
                 AccountProfile acc = accountProfileRepository.findById(aid)
-                        .orElseThrow(()-> new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "권한이 없는 참여자입니다: " + aid));
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "권한이 없는 참여자입니다: " + aid));
                 MeetingParticipant participant = new MeetingParticipant();
                 participant.setMeeting(meeting);
                 participant.setAccount(acc);
@@ -226,15 +244,17 @@ public class MeetingServiceImpl implements MeetingService {
             }
         }
 
-        // 노트 본문
+        // 7. 노트 수정
         Long newNoteVersion = null;
         if (request.getContent() != null) {
             MeetingNote note = meetingNoteRepository.findByMeetingId(meeting.getId())
-                    .orElseThrow(()-> new ResponseStatusException(HttpStatus.CONFLICT, "노트 버전이 일치하지 않습니다."));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "노트 버전이 일치하지 않습니다."));
             note.setContent(request.getContent());
             meetingNoteRepository.saveAndFlush(note);
             newNoteVersion = note.getVersion();
         }
+
+        // 8. 미팅 저장
         meetingRepository.saveAndFlush(meeting);
 
         return new UpdateMeetingResponse(

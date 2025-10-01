@@ -8,6 +8,6 @@ import org.springframework.data.repository.query.Param;
 import java.util.Optional;
 
 public interface MeetingNoteRepository extends JpaRepository<MeetingNote, Long> {
-    @Query("select  n from MeetingNote n where n.meeting.id = :mid")
+    @Query("select n from MeetingNote n where n.meeting.id = :mid")
     Optional<MeetingNote> findByMeetingId(@Param("mid") Long meetingId);
 }
