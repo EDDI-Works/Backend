@@ -37,5 +37,9 @@ public class MeetingNote {
     @Column(name="updated_at")
     private LocalDateTime updatedAt;
 
+    // 수정하기 위해 추가
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
 }

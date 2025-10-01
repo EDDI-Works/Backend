@@ -4,7 +4,9 @@ import com.example.attack_on_monday_backend.meeting.controller.request_form.Crea
 import com.example.attack_on_monday_backend.meeting.service.request.CreateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.request.UpdateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.response.CreateMeetingResponse;
+import com.example.attack_on_monday_backend.meeting.service.response.UpdateMeetingResponse;
 
 public interface MeetingService {
     CreateMeetingResponse create (CreateMeetingRequest request);
+    UpdateMeetingResponse update (String publicId, UpdateMeetingRequest request);
 }

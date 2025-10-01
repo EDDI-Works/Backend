@@ -80,6 +80,10 @@ public class Meeting {
         if (title == null) title = "";
     }
 
+    // 수정하기 위해 추가
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     public void setProject(Project project) {
         this.project = project;

@@ -9,6 +9,7 @@ import lombok.Getter;
 public class CreateMeetingResponseForm {
     private Long meetingId;
     private Long noteId;
+    private String noteContent;
     private String publicId;
     private int participantCount;
 
@@ -16,6 +17,7 @@ public class CreateMeetingResponseForm {
         return new CreateMeetingResponseForm(
                 response.getMeetingId(),
                 response.getNoteId(),
+                response.getNoteContent(),
                 response.getPublicId(),
                 response.getParticipantCount()
         );

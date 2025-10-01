@@ -3,8 +3,11 @@ package com.example.attack_on_monday_backend.meeting.controller;
 import com.example.attack_on_monday_backend.meeting.controller.request_form.CreateMeetingRequestForm;
 import com.example.attack_on_monday_backend.meeting.controller.request_form.UpdateMeetingRequestForm;
 import com.example.attack_on_monday_backend.meeting.controller.response_form.CreateMeetingResponseForm;
+import com.example.attack_on_monday_backend.meeting.controller.response_form.UpdateMeetingResponseForm;
 import com.example.attack_on_monday_backend.meeting.service.MeetingService;
+import com.example.attack_on_monday_backend.meeting.service.request.UpdateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.response.CreateMeetingResponse;
+import com.example.attack_on_monday_backend.meeting.service.response.UpdateMeetingResponse;
 import com.example.attack_on_monday_backend.redis_cache.service.RedisCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +50,28 @@ public class MeetingController {
                 .status(HttpStatus.CREATED)
                 .header("Location", "/meeting/"+response.getPublicId())
                 .body(CreateMeetingResponseForm.from(response));
+    }
+
+    // 수정
+    @PatchMapping("/{publicId}")
+    public ResponseEntity<UpdateMeetingResponseForm> updateMeeting(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable String publicId,
+            @RequestBody UpdateMeetingRequestForm requestForm) {
+        log.info("updateMeeting -> {}", requestForm);
+
+        String userToken = authorizationHeader.replace("Bearer", "").trim();
+        Long accountId = redisCacheService.getValueByKey(userToken, Long.class);
+        if (accountId == null) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        UpdateMeetingRequest req = requestForm.toUpdateMeetingRequest(accountId);
+        UpdateMeetingResponse response = meetingService.update(publicId, req);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(UpdateMeetingResponseForm.from(response));
     }
 
 }

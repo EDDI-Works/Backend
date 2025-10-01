@@ -12,4 +12,8 @@ public interface MeetingParticipantRepository extends JpaRepository<MeetingParti
     @Modifying
     @Query("delete from MeetingParticipant p where p.meeting.id = :mid")
     void deleteByMeetingId(@Param("mid") Long meetingId);
+
+    @Modifying
+    @Query("delete from MeetingParticipant p where p.meeting.id = :mid")
+    void deleteAllByMeetingId(@Param("mid") Long meetingId);
 }

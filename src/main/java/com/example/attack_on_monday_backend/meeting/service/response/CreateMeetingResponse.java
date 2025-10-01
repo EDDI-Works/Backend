@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class CreateMeetingResponse {
     private Long meetingId;
     private Long noteId;
+    private String noteContent;
     private String publicId;
     private int participantCount;
 
@@ -19,6 +20,7 @@ public class CreateMeetingResponse {
         return new CreateMeetingResponse(
                 meeting.getId(),
                 meetingNote.getId(),
+                meetingNote.getContent(),
                 meeting.getPublicId(),
                 participantCount
         );
