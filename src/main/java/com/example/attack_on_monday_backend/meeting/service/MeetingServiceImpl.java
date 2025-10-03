@@ -10,6 +10,7 @@ import com.example.attack_on_monday_backend.meeting.repository.MeetingRepository
 import com.example.attack_on_monday_backend.meeting.service.request.CreateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.request.UpdateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.response.CreateMeetingResponse;
+import com.example.attack_on_monday_backend.meeting.service.response.ReadMeetingResponse;
 import com.example.attack_on_monday_backend.meeting.service.response.UpdateMeetingResponse;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import com.example.attack_on_monday_backend.project.repository.ProjectRepository;
@@ -23,8 +24,11 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -278,4 +282,74 @@ public class MeetingServiceImpl implements MeetingService {
         }
     }
 
+    @Override
+    @Transactional
+    public ReadMeetingResponse read(String publicId, Long accountId) {
+        // 1. 미팅 로드
+        Meeting meeting = meetingRepository.findDetailByPublicId(publicId)
+                .orElseGet(() -> meetingRepository.findByPublicId(publicId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
+
+        // 2. 권한 체크: 생성자 또는 참여자만 접근 허용
+        boolean isOwner = meeting.getCreator() != null && meeting.getCreator().getId().equals(accountId);
+        boolean isParticipant = meetingParticipantRepository
+                .existsByMeetingIdAndAccountId(meeting.getId(), accountId);
+        if (!isOwner && !isParticipant) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        }
+
+        // 3. 노트 본문
+        MeetingNote note = meetingNoteRepository.findByMeeting(meeting);
+        String noteContent = (note == null || note.getContent() == null) ? "" : note.getContent();
+
+        // 4. 참여자/팀 리스트
+        List<String> participantNames =
+                meetingParticipantRepository.findAccountNicknamesByMeetingId(meeting.getId());
+        List<Long> participantIds =
+                meetingParticipantRepository.findAccountIdsByMeetingId(meeting.getId());
+
+        // id -> name 매핑
+        Map<Long, String> idToName = new HashMap<>();
+        for (int i = 0; i< Math.min(participantIds.size(), participantNames.size()); i++) {
+            idToName.put(participantIds.get(i), participantNames.get(i));
+        }
+        // 리스트<Map> 구성
+        List<Map<String, Object>> participantList = participantIds.stream()
+                .distinct()
+                .map(id -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", id);
+                    m.put("name", idToName.getOrDefault(id, "")); // 이름 없으면 빈 문자
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+//      List<String> teamNames =
+//                meetingParticipateTeamRepository.findTeamTitlesByMeetingId(meeting.getId());
+        List<Long> teamIds =
+                meetingParticipateTeamRepository.findTeamIdsByMeetingId(meeting.getId());
+        List<Map<String, Object>> teamList = teamIds.stream()
+                .distinct()
+                .map(tid -> {
+                    Map<String, Object> m = new HashMap<>();
+                    m.put("id", tid);
+                    m.put("name", ""); // Team 엔티티 생기면 실제 이름으로 대체
+                    return m;
+                })
+                .collect(Collectors.toList());
+
+
+        // 5. 생성자/생성일/업데이트일
+        Long creatorId = (meeting.getCreator() != null) ? meeting.getCreator().getId() : null;
+        String creatorName = (meeting.getCreator() != null) ? meeting.getCreator().getNickname() : null;
+        LocalDateTime createdAt = meeting.getCreatedAt();
+        LocalDateTime updatedAt = meeting.getUpdatedAt();
+
+        return ReadMeetingResponse.from(
+                meeting,
+                participantList,
+                teamList,
+                noteContent
+        );
+    }
 }

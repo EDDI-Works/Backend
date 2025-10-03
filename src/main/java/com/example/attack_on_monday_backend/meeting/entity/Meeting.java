@@ -46,6 +46,9 @@ public class Meeting {
     @Column(nullable = false, length = 200)
     private String title = "";
 
+    @OneToOne(mappedBy = "meeting", fetch = FetchType.LAZY)
+    private MeetingNote note;
+
     // 종일 여부
     @Column(name = "all_day", nullable = false)
     private boolean allDay = false;
