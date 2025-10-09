@@ -10,12 +10,16 @@ import com.example.attack_on_monday_backend.meeting.repository.MeetingRepository
 import com.example.attack_on_monday_backend.meeting.service.request.CreateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.request.UpdateMeetingRequest;
 import com.example.attack_on_monday_backend.meeting.service.response.CreateMeetingResponse;
+import com.example.attack_on_monday_backend.meeting.service.response.ListMeetingResponse;
 import com.example.attack_on_monday_backend.meeting.service.response.ReadMeetingResponse;
 import com.example.attack_on_monday_backend.meeting.service.response.UpdateMeetingResponse;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import com.example.attack_on_monday_backend.project.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -282,6 +286,56 @@ public class MeetingServiceImpl implements MeetingService {
         }
     }
 
+    // 리스트 조회
+    @Override
+    @Transactional
+    public ListMeetingResponse list(Long accountId, Integer page, Integer perPage, LocalDate from, LocalDate to) {
+        // 캘린더 모드
+        if (from != null && to != null) {
+            LocalDateTime fromDt = from.atStartOfDay();
+            LocalDateTime toDt = to.plusDays(1).atStartOfDay();
+
+            List<Meeting> rows = meetingRepository.findRangeVisibleTo(accountId, fromDt, toDt);
+            List<Map<String, Object>> items = rows.stream().map(m ->{
+                Map<String, Object> map = new HashMap<>();
+                map.put("meetingId", m.getId());
+                map.put("publicId",  m.getPublicId());
+                map.put("title",     m.getTitle());
+                map.put("allDay",    m.isAllDay());
+                map.put("start",     m.getStartTime()==null?null:m.getStartTime().toString());
+                map.put("end",       m.getEndTime()==null?null:m.getEndTime().toString());
+                return map;
+            }).toList();
+
+            // 캘린터는 페이지 의미 없음
+            return ListMeetingResponse.from(items, items.size(), 1, 1, items.size());
+        }
+
+        // 리스트: 페이지네이션
+        int p  = (page == null || page < 1) ? 1 : page;
+        int pp = (perPage == null || perPage < 1) ? 10 : perPage;
+        Pageable pageable = PageRequest.of(p - 1, pp);
+
+        Page<Meeting> slice = meetingRepository.findPageVisibleTo(accountId, pageable);
+
+        List<Map<String, Object>> items = slice.getContent().stream().map(m -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("meetingId", m.getId());
+            map.put("publicId",  m.getPublicId());
+            map.put("title",     m.getTitle());
+            map.put("allDay",    m.isAllDay());
+            map.put("start",     m.getStartTime()==null?null:m.getStartTime().toString());
+            map.put("end",       m.getEndTime()==null?null:m.getEndTime().toString());
+            map.put("creatorNickname", m.getCreator()==null?null:m.getCreator().getNickname());
+            map.put("updatedAt", m.getUpdatedAt()==null?null:m.getUpdatedAt().toString());
+            map.put("participantCount", meetingParticipantRepository.countByMeetingId(m.getId()));
+            return map;
+        }).toList();
+
+
+        return ListMeetingResponse.from(items, slice.getTotalElements(), slice.getTotalPages(), p, pp);
+    }
+
     @Override
     @Transactional
     public ReadMeetingResponse read(String publicId, Long accountId) {
@@ -351,5 +405,7 @@ public class MeetingServiceImpl implements MeetingService {
                 teamList,
                 noteContent
         );
+
+
     }
 }
