@@ -60,6 +60,7 @@ public class MeetingBoardServiceImpl implements MeetingBoardService{
 
         meetingBoardRepository.saveAndFlush(saved);
         BoardSnapshot boardSnapshot = readSnapshot(saved.getSnapshotJson());
+
         return BoardResponse.from(publicId, boardSnapshot, saved.getUpdatedAt());
     }
 
@@ -78,5 +79,25 @@ public class MeetingBoardServiceImpl implements MeetingBoardService{
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "스냅샷 역직렬화 실패", e);
         }
+    }
+
+    @Override
+    public BoardResponse read(Long accountId, String publicId) {
+
+        Meeting meeting = meetingRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 미팅을 찾을 수 없습니다."));
+
+        boolean isOwner = meeting.getCreator() != null && meeting.getCreator().getId().equals(accountId);
+        boolean isParticipant = meetingParticipantRepository.existsByMeetingIdAndAccountId(meeting.getId(), accountId);
+        if (!(isOwner || isParticipant)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "조회 권한이 없습니다.");
+        }
+
+        MeetingBoard board = meetingBoardRepository.findByMeetingId(meeting.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "보드를 찾을 수 없습니다."));
+
+        BoardSnapshot boardSnapshot = readSnapshot(board.getSnapshotJson());
+
+        return BoardResponse.from(publicId, boardSnapshot, board.getUpdatedAt());
     }
 }

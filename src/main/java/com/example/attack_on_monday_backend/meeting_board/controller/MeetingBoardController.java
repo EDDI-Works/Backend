@@ -46,6 +46,28 @@ public class MeetingBoardController {
     }
 
     // 조회
+    @GetMapping
+    public ResponseEntity<BoardResponseForm> read(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable String publicId,
+            @RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch
+    ){
+        log.info("publicId={}, ifNoneMatch={}", publicId, ifNoneMatch);
+
+        String userToken = authorizationHeader.replace("Bearer", "").trim();
+        Long accountId = redisCacheService.getValueByKey(userToken, Long.class);
+        if (accountId == null){
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        BoardResponse response = meetingBoardService.read(accountId, publicId);
+        String etag = response.getUpdatedAt() == null ? null : "\"" + response.getUpdatedAt().toString() + "\"";
+        if (etag != null && etag.equals(ifNoneMatch)) {
+            return ResponseEntity.status(HttpStatus.NOT_MODIFIED).eTag(etag).build();
+        }
+        return ResponseEntity.status(HttpStatus.OK)
+                .eTag(etag).body(BoardResponseForm.from(response));
+    }
 
     // 초기화
 }
