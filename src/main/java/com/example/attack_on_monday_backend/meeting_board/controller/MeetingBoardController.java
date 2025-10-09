@@ -70,4 +70,21 @@ public class MeetingBoardController {
     }
 
     // 초기화
+    @DeleteMapping
+    public ResponseEntity<Void> clear (
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable String publicId
+    ) {
+        log.info("publicId={}", publicId);
+
+        String userToken = authorizationHeader.replace("Bearer", "").trim();
+        Long accountId = redisCacheService.getValueByKey(userToken, Long.class);
+        if (accountId == null){
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        meetingBoardService.clear(accountId, publicId);
+
+        return ResponseEntity.noContent().build();
+    }
 }

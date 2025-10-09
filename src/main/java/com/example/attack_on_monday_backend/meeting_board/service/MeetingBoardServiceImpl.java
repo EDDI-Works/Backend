@@ -100,4 +100,21 @@ public class MeetingBoardServiceImpl implements MeetingBoardService{
 
         return BoardResponse.from(publicId, boardSnapshot, board.getUpdatedAt());
     }
+
+    @Override
+    public void clear(Long accountId, String publicId) {
+        Meeting meeting = meetingRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 미팅을 찾을 수 없습니다."));
+
+        if (meeting.isLocked()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "잠금 상태입니다.");
+        }
+        boolean isOwner = meeting.getCreator() != null && meeting.getCreator().getId().equals(accountId);
+        boolean isParticipant = meetingParticipantRepository.existsByMeetingIdAndAccountId(meeting.getId(), accountId);
+        if (!(isOwner || isParticipant)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "수정 권한이 없습니다.");
+        }
+
+        meetingBoardRepository.deleteByMeetingId(meeting.getId());
+    }
 }
