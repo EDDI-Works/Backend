@@ -25,4 +25,15 @@ public class AccountServiceImpl implements AccountService {
         Account account = new Account(accountRoleType);
         return accountRepository.save(account);
     }
+
+    @Override
+    public boolean authenticateAccount(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 인증 중 회원을 찾을 수 없습니다"));
+        if (account == null) {
+            return false;
+        } else{
+            return true;
+        }
+    }
 }

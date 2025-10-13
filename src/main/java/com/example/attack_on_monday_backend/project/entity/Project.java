@@ -28,9 +28,18 @@ public class Project {
     @JoinColumn(name = "account_profile_id", nullable = false)
     private AccountProfile writer;
 
+    @Column(name = "team_id")
+    private Long teamId;
+
     public Project(String title, AccountProfile writer) {
         this.title = title;
         this.writer = writer;
+    }
+
+    public Project(String title, AccountProfile writer, Long teamId) {
+        this.title = title;
+        this.writer = writer;
+        this.teamId = teamId;
     }
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm", timezone = "Asia/Seoul")

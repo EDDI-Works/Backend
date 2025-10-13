@@ -31,8 +31,14 @@ public class ReadAgileBoardResponse {
             Map<String, Object> map = new HashMap<>();
             map.put("id", kanbanTicket.getId());
             map.put("title", kanbanTicket.getTitle());
-            map.put("writer", kanbanTicket.getWriter().getNickname());
+            map.put("description", kanbanTicket.getDescription());
+            map.put("status", kanbanTicket.getStatus() != null ? kanbanTicket.getStatus().name() : null);
+            map.put("priority", kanbanTicket.getPriority() != null ? kanbanTicket.getPriority().name() : null);
+            map.put("domain", kanbanTicket.getDomain());
+            map.put("writerId", kanbanTicket.getWriter().getId());
+            map.put("writerNickname", kanbanTicket.getWriter().getNickname());
             map.put("createDate", kanbanTicket.getCreateDate());
+            map.put("updateDate", kanbanTicket.getUpdateDate());
             return map;
         }).collect(Collectors.toList());
 

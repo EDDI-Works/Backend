@@ -195,7 +195,7 @@ public class KakaoAuthenticationServiceImpl implements KakaoAuthenticationServic
             redisCacheService.setKeyAndValue(userToken, accountId);
             return userToken;
         } catch (Exception e) {
-            throw new RuntimeException("Error storing token in Redis: " + e.getMessage());
+            throw new RuntimeException("Error string token in Redis: " + e.getMessage());
         }
     }
 

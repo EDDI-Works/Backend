@@ -22,4 +22,18 @@ public class ListProjectResponseForm {
 
         return new ListProjectResponseForm(combinedProjectList, totalItems, totalPages);
     }
+
+    public static ListProjectResponseForm fromTeamProjects(List<ListProjectResponse.ProjectInfo> projects) {
+        List<Map<String, Object>> projectList = projects.stream()
+                .map(project -> Map.of(
+                        "id", (Object) project.getId(),
+                        "title", project.getTitle(),
+                        "writerNickname", project.getWriterNickname(),
+                        "createDate", project.getCreateDate(),
+                        "updateDate", project.getUpdateDate()
+                ))
+                .collect(Collectors.toList());
+
+        return new ListProjectResponseForm(projectList, (long) projects.size(), 1);
+    }
 }

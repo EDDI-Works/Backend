@@ -59,7 +59,7 @@ public class ProjectServiceImpl implements ProjectService {
         log.info("account profile: {}", accountProfile);
 
         Project savedProject = projectRepository.save(createProjectRequest.toProject(accountProfile));
-        return CreateProjectResponse.from(savedProject);
+        return CreateProjectResponse.from(savedProject, createProjectRequest.getTeamId());
     }
 
     @Override
@@ -78,5 +78,20 @@ public class ProjectServiceImpl implements ProjectService {
 
         return ReadProjectResponse.from(project, paginatedAgileBoard.getContent(),
                 paginatedAgileBoard.getTotalElements(), paginatedAgileBoard.getTotalPages());
+    }
+
+    @Override
+    public List<ListProjectResponse.ProjectInfo> getProjectsByTeamId(Long teamId) {
+        List<Project> projects = projectRepository.findByTeamIdWithWriter(teamId);
+        
+        return projects.stream()
+                .map(project -> new ListProjectResponse.ProjectInfo(
+                        project.getId(),
+                        project.getTitle(),
+                        project.getWriter().getNickname(),
+                        project.getCreateDate(),
+                        project.getUpdateDate()
+                ))
+                .collect(java.util.stream.Collectors.toList());
     }
 }

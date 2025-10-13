@@ -25,6 +25,8 @@ public class AgileBoard {
     @Setter
     private String title;
 
+
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_profile_id", nullable = false)
     private AccountProfile writer;
