@@ -5,4 +5,5 @@ import com.example.attack_on_monday_backend.account.service.request.RegisterNorm
 
 public interface AccountService {
     Account createAccount(RegisterNormalAccountRequest request);
+    boolean authenticateAccount(Long accountId);
 }

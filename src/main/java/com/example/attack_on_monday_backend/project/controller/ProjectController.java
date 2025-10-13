@@ -6,6 +6,7 @@ import com.example.attack_on_monday_backend.project.controller.response_form.Cre
 import com.example.attack_on_monday_backend.project.controller.response_form.ListProjectResponseForm;
 import com.example.attack_on_monday_backend.project.controller.response_form.ReadProjectResponseForm;
 import com.example.attack_on_monday_backend.project.service.ProjectService;
+import com.example.attack_on_monday_backend.project.service.request.CreateProjectRequest;
 import com.example.attack_on_monday_backend.project.service.response.CreateProjectResponse;
 import com.example.attack_on_monday_backend.project.service.response.ListProjectResponse;
 import com.example.attack_on_monday_backend.project.service.response.ReadProjectResponse;
@@ -62,7 +63,13 @@ public class ProjectController {
             throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
         }
 
-        CreateProjectResponse response = projectService.register(createProjectRequestForm.toCreateProjectRequest(accountId));
+        CreateProjectResponse response = projectService.register(
+                CreateProjectRequest.builder()
+                        .title(createProjectRequestForm.getTitle())
+                        .accountId(accountId)
+                        .teamId(null)
+                        .build()
+        );
 
         return CreateProjectResponseForm.from(response);
     }
@@ -85,5 +92,24 @@ public class ProjectController {
 
         ReadProjectResponse response = projectService.read(projectId, page, perPage);
         return ReadProjectResponseForm.from(response);
+    }
+
+    @GetMapping("/team/{teamId}")
+    public ListProjectResponseForm getTeamProjects(
+            @RequestHeader("Authorization") String authorizationHeader,
+            @PathVariable("teamId") Long teamId) {
+
+        log.info("getTeamProjects() -> teamId: {}", teamId);
+
+        String userToken = authorizationHeader.replace("Bearer ", "").trim();
+
+        Long accountId = redisCacheService.getValueByKey(userToken, Long.class);
+        if (accountId == null) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        List<ListProjectResponse.ProjectInfo> projects = projectService.getProjectsByTeamId(teamId);
+
+        return ListProjectResponseForm.fromTeamProjects(projects);
     }
 }

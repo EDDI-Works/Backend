@@ -14,6 +14,7 @@ public interface AccountProfileRepository extends JpaRepository<AccountProfile, 
     @Query("SELECT ap FROM AccountProfile ap WHERE ap.email = :email")
     Optional<AccountProfile> findWithAccountByEmail(@Param("email") String email);
 
+
     boolean existsByEmail(String email);
     boolean existsByNickname(String nickname);
 }

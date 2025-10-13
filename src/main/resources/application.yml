@@ -46,6 +46,21 @@ github:
   token-request-uri: ${GITHUB_TOKEN_REQUEST_URI}
   user-info-request-uri: ${GITHUB_USER_INFO_REQUEST_URI}
 
+kakao:
+  login-url: ${KAKAO_LOGIN_URL}
+  client-id: ${KAKAO_CLIENT_ID}
+  redirect-uri: ${KAKAO_REDIRECT_URI}
+  token-request-uri: ${KAKAO_TOKEN_REQUEST_URI}
+  user-info-request-uri: ${KAKAO_USER_INFO_REQUEST_URI}
+
+frontend:
+  authentication:
+    origins: ${FRONTEND_AUTHENTICATION_ORIGINS}
+
+
+
+
+
 springdoc:
   api-docs:
     path: /v3/api-docs

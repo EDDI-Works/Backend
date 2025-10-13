@@ -39,4 +39,14 @@ public class ListProjectResponse {
     public static ListProjectResponse from(List<Project> projectList, Long totalItems, Integer totalPages) {
         return new ListProjectResponse(projectList, totalItems, totalPages);
     }
+
+    @Getter
+    @RequiredArgsConstructor
+    public static class ProjectInfo {
+        private final Long id;
+        private final String title;
+        private final String writerNickname;
+        private final LocalDateTime createDate;
+        private final LocalDateTime updateDate;
+    }
 }

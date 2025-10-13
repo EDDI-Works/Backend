@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Getter
+@Setter
 @ToString
 @NoArgsConstructor
 public class KanbanTicket {
@@ -35,6 +36,18 @@ public class KanbanTicket {
     @JoinColumn(name = "agile_board_id", nullable = false)
     private AgileBoard agileBoard;
 
+    @Enumerated(EnumType.STRING)
+    private Status status;
+
+    @Enumerated(EnumType.STRING)
+    private Priority priority;
+
+    private String domain;
+
+    @Lob
+    private String description;
+
+
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm", timezone = "Asia/Seoul")
     @CreationTimestamp
     private LocalDateTime createDate;
@@ -45,6 +58,16 @@ public class KanbanTicket {
 
     public KanbanTicket(String title, AccountProfile writer, AgileBoard agileBoard) {
         this.title = title;
+        this.writer = writer;
+        this.agileBoard = agileBoard;
+    }
+
+    public KanbanTicket(String title, String description, Status status, Priority priority, String domain, AccountProfile writer, AgileBoard agileBoard) {
+        this.title = title;
+        this.description = description;
+        this.status = status;
+        this.priority = priority;
+        this.domain = domain;
         this.writer = writer;
         this.agileBoard = agileBoard;
     }
