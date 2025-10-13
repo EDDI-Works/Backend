@@ -1,5 +1,6 @@
 package com.example.attack_on_monday_backend.project.repository;
 
+import com.example.attack_on_monday_backend.account_profile.entity.AccountProfile;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,4 +20,5 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     @Query("SELECT p FROM Project p JOIN FETCH p.writer WHERE p.teamId = :teamId")
     List<Project> findByTeamIdWithWriter(@Param("teamId") Long teamId);
+    Optional<Project> findByWriterAndTitle(AccountProfile writer, String title);
 }
