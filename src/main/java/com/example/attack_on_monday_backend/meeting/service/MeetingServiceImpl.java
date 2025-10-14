@@ -15,6 +15,8 @@ import com.example.attack_on_monday_backend.meeting.service.response.ReadMeeting
 import com.example.attack_on_monday_backend.meeting.service.response.UpdateMeetingResponse;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import com.example.attack_on_monday_backend.project.repository.ProjectRepository;
+import com.example.attack_on_monday_backend.team.entity.Team; // [NEW]
+import com.example.attack_on_monday_backend.team.repository.TeamRepository; // [NEW]
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,6 +47,7 @@ public class MeetingServiceImpl implements MeetingService {
     final private MeetingParticipateTeamRepository meetingParticipateTeamRepository;
     final private ProjectRepository projectRepository;
     final private AccountProfileRepository accountProfileRepository;
+    final private TeamRepository teamRepository; // [NEW]
 
     @Override
     @Transactional
@@ -138,11 +141,32 @@ public class MeetingServiceImpl implements MeetingService {
 
         // 6. 팀 연결 (팀이 여러개이면 participate 테이블 채움)
         List<Long> teamIds = request.getTeamIds() == null ? List.of() : request.getTeamIds().stream().distinct().toList();
+
+        // 프로젝트 팀 검증(멤버십 정보 없이 가능한 최소 검증)
+        // - 규칙: 선택된 모든 teamId는 해당 프로젝트의 teamId와 같아야 함
+        Long projectTeamId = (project != null ? project.getTeamId() : null);
+        if (!teamIds.isEmpty()) {
+            if (projectTeamId == null) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "이 프로젝트에는 연결된 팀이 없습니다. 팀을 선택할 수 없습니다.");
+            }
+            for (Long teamId : teamIds) {
+                if (!Objects.equals(projectTeamId, teamId)) {
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                            "해당 프로젝트의 팀만 선택할 수 있습니다. 잘못된 teamId: " + teamId);
+                }
+            }
+        }
+
+        // (메인팀은 CreateMeetingRequest.toMeeting()에서 이미 첫 teamId로 세팅됨)
+
+        // 팀이 여러개이면 participate 테이블 채움 (현재 정책상 결국 동일 teamId만 허용됨)
         if (teamIds.size() >= 2) {
             for (Long teamId : teamIds) {
                 MeetingParticipateTeam participateTeam = new MeetingParticipateTeam();
                 participateTeam.setMeeting(meeting);
-                participateTeam.setTeamId(teamId);
+                Team teamRef = teamRepository.getReferenceById(teamId);
+                participateTeam.setTeam(teamRef);                        // [CHANGED] setTeamId -> setTeam
                 meetingParticipateTeamRepository.save(participateTeam);
             }
         }
@@ -161,8 +185,6 @@ public class MeetingServiceImpl implements MeetingService {
                 });
     }
 
-
-    // 수정 서비스
     @Override
     @Transactional
     public UpdateMeetingResponse update(String publicId, UpdateMeetingRequest request) {
@@ -179,7 +201,7 @@ public class MeetingServiceImpl implements MeetingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "미팅 버전이 맞지 않습니다.");
         }
 
-        // 개인 프로젝트 폴백(meeting의 project가 사라졌거나 null인 경우)
+        // 개인 프로젝트 폴백
         if (meeting.getProject() == null || !projectRepository.existsById(meeting.getProject().getId())) {
             Project fallbackProject = findOrCreatePersonalProject(meeting.getCreator());
             meeting.setProject(fallbackProject);
@@ -199,7 +221,7 @@ public class MeetingServiceImpl implements MeetingService {
             meeting.setEndTime(LocalDateTime.parse(request.getEnd()));
         }
 
-        // allDay true일 때 종료 시간 null 방지
+        // allDay 보정
         if (meeting.isAllDay()) {
             if (meeting.getStartTime() == null) {
                 meeting.setStartTime(LocalDate.now(ZoneId.of("Asia/Seoul")).atStartOfDay());
@@ -208,7 +230,6 @@ public class MeetingServiceImpl implements MeetingService {
                 meeting.setEndTime(meeting.getStartTime().toLocalDate().atTime(23, 59, 59));
             }
         } else {
-            // 시간 검증
             if (meeting.getStartTime() == null || meeting.getEndTime() == null || !meeting.getStartTime().isBefore(meeting.getEndTime())) {
                 throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "start must be < end");
             }
@@ -217,13 +238,31 @@ public class MeetingServiceImpl implements MeetingService {
         // 5. 팀 재설정
         if (request.getTeamIds() != null) {
             List<Long> distinct = request.getTeamIds().stream().distinct().toList();
+
+            // [NEW] 프로젝트 팀 검증(멤버십 정보 없이 가능한 최소 검증)
+            Long projectTeamId = (meeting.getProject() != null ? meeting.getProject().getTeamId() : null);
+            if (!distinct.isEmpty()) {
+                if (projectTeamId == null) {
+                    throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                            "이 프로젝트에는 연결된 팀이 없습니다. 팀을 선택할 수 없습니다.");
+                }
+                for (Long teamId : distinct) {
+                    if (!Objects.equals(projectTeamId, teamId)) {
+                        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                                "해당 프로젝트의 팀만 선택할 수 있습니다. 잘못된 teamId: " + teamId);
+                    }
+                }
+            }
+
             meeting.setMainTeamId(distinct.isEmpty() ? null : distinct.get(0));
             meetingParticipateTeamRepository.deleteAllByMeetingId(meeting.getId());
 
+            // FK 저장
             for (Long teamId : distinct) {
                 MeetingParticipateTeam pt = new MeetingParticipateTeam();
                 pt.setMeeting(meeting);
-                pt.setTeamId(teamId);
+                Team teamRef = teamRepository.getReferenceById(teamId);
+                pt.setTeam(teamRef);                                    // [CHANGED]
                 meetingParticipateTeamRepository.save(pt);
             }
         }
@@ -286,7 +325,6 @@ public class MeetingServiceImpl implements MeetingService {
         }
     }
 
-    // 리스트 조회
     @Override
     @Transactional
     public ListMeetingResponse list(Long accountId, Integer page, Integer perPage, LocalDate from, LocalDate to) {
@@ -307,7 +345,7 @@ public class MeetingServiceImpl implements MeetingService {
                 return map;
             }).toList();
 
-            // 캘린터는 페이지 의미 없음
+            // 캘린더는 페이지 의미 없음
             return ListMeetingResponse.from(items, items.size(), 1, 1, items.size());
         }
 
@@ -332,7 +370,6 @@ public class MeetingServiceImpl implements MeetingService {
             return map;
         }).toList();
 
-
         return ListMeetingResponse.from(items, slice.getTotalElements(), slice.getTotalPages(), p, pp);
     }
 
@@ -344,7 +381,7 @@ public class MeetingServiceImpl implements MeetingService {
                 .orElseGet(() -> meetingRepository.findByPublicId(publicId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
 
-        // 2. 권한 체크: 생성자 또는 참여자만 접근 허용
+        // 2. 권한 체크
         boolean isOwner = meeting.getCreator() != null && meeting.getCreator().getId().equals(accountId);
         boolean isParticipant = meetingParticipantRepository
                 .existsByMeetingIdAndAccountId(meeting.getId(), accountId);
@@ -356,18 +393,16 @@ public class MeetingServiceImpl implements MeetingService {
         MeetingNote note = meetingNoteRepository.findByMeeting(meeting);
         String noteContent = (note == null || note.getContent() == null) ? "" : note.getContent();
 
-        // 4. 참여자/팀 리스트
+        // 4-1. 참여자 리스트 (id + name)
         List<String> participantNames =
                 meetingParticipantRepository.findAccountNicknamesByMeetingId(meeting.getId());
         List<Long> participantIds =
                 meetingParticipantRepository.findAccountIdsByMeetingId(meeting.getId());
 
-        // id -> name 매핑
         Map<Long, String> idToName = new HashMap<>();
-        for (int i = 0; i< Math.min(participantIds.size(), participantNames.size()); i++) {
+        for (int i = 0; i < Math.min(participantIds.size(), participantNames.size()); i++) {
             idToName.put(participantIds.get(i), participantNames.get(i));
         }
-        // 리스트<Map> 구성
         List<Map<String, Object>> participantList = participantIds.stream()
                 .distinct()
                 .map(id -> {
@@ -378,34 +413,31 @@ public class MeetingServiceImpl implements MeetingService {
                 })
                 .collect(Collectors.toList());
 
-//      List<String> teamNames =
-//                meetingParticipateTeamRepository.findTeamTitlesByMeetingId(meeting.getId());
+        // 4-2. 팀 리스트 (id + name)
         List<Long> teamIds =
                 meetingParticipateTeamRepository.findTeamIdsByMeetingId(meeting.getId());
+
+        // [NEW] 팀 이름 매핑 로딩 (추가 레포 메서드 없이 기본 findAllById 사용)
+        Map<Long, String> teamNameMap = teamRepository.findAllById(teamIds).stream()
+                .collect(Collectors.toMap(Team::getId, Team::getName, (a, b) -> a));
+
+        // [CHANGED] name 채워서 반환
         List<Map<String, Object>> teamList = teamIds.stream()
                 .distinct()
                 .map(tid -> {
                     Map<String, Object> m = new HashMap<>();
                     m.put("id", tid);
-                    m.put("name", ""); // Team 엔티티 생기면 실제 이름으로 대체
+                    m.put("name", teamNameMap.getOrDefault(tid, ""));
                     return m;
                 })
                 .collect(Collectors.toList());
 
-
-        // 5. 생성자/생성일/업데이트일
-        Long creatorId = (meeting.getCreator() != null) ? meeting.getCreator().getId() : null;
-        String creatorName = (meeting.getCreator() != null) ? meeting.getCreator().getNickname() : null;
-        LocalDateTime createdAt = meeting.getCreatedAt();
-        LocalDateTime updatedAt = meeting.getUpdatedAt();
-
+        // 5. 메타
         return ReadMeetingResponse.from(
                 meeting,
                 participantList,
                 teamList,
                 noteContent
         );
-
-
     }
 }

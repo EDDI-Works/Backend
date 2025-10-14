@@ -46,6 +46,43 @@ public class AccountController {
         String userToken = UUID.randomUUID().toString();
         redisCacheService.setKeyAndValue(accountId, accessToken);
         redisCacheService.setKeyAndValue(userToken, accountId);
+
+        // access:<accessToken> -> accountId (로그인 역조회용)
+        redisCacheService.setKeyAndValue("access:" + accessToken, accountId);
         return userToken;
     }
+
+    // 나중에 삭제할거
+    @PostMapping("/login")
+    public String login(@RequestHeader("Authorization") String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            throw new IllegalArgumentException("Authorization 헤더가 없습니다.");
+        }
+
+        String accessToken = authorizationHeader.replace("Bearer", "").trim();
+        if (accessToken.isBlank()) {
+            throw new IllegalArgumentException("Authorization 헤더가 비어 있습니다.");
+        }
+
+        // 1) 기존 가입자: 역매핑으로 accountId 조회
+        Long accountId = redisCacheService.getValueByKey("access:" + accessToken, Long.class);
+
+        if (accountId == null) {
+            // [NEW] 2) 소셜 로그인 최초 유입(미가입): 자동 가입 → 곧장 userToken 발급
+            log.info("소셜 로그인 자동가입 진행(access:{}). 역매핑 없음 → 계정 생성", accessToken);
+            Account account = accountService.createAccount(null); // 최소 계정 생성
+            accountId = account.getId();
+
+            // 자동가입 시 매핑 세팅
+            redisCacheService.setKeyAndValue(accountId, accessToken);         // accountId -> accessToken
+            redisCacheService.setKeyAndValue("access:" + accessToken, accountId); // access:<accessToken> -> accountId
+        }
+
+        // 토큰 회전 발급
+        String newUserToken = UUID.randomUUID().toString();
+        redisCacheService.setKeyAndValue(newUserToken, accountId); // userToken -> accountId
+
+        return newUserToken;
+    }
+
 }
