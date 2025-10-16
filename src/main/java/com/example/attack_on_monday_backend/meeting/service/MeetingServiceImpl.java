@@ -13,6 +13,7 @@ import com.example.attack_on_monday_backend.meeting.service.response.CreateMeeti
 import com.example.attack_on_monday_backend.meeting.service.response.ListMeetingResponse;
 import com.example.attack_on_monday_backend.meeting.service.response.ReadMeetingResponse;
 import com.example.attack_on_monday_backend.meeting.service.response.UpdateMeetingResponse;
+import com.example.attack_on_monday_backend.meeting_board.repository.MeetingBoardRepository;
 import com.example.attack_on_monday_backend.project.entity.Project;
 import com.example.attack_on_monday_backend.project.repository.ProjectRepository;
 import com.example.attack_on_monday_backend.team.entity.Team; // [NEW]
@@ -47,7 +48,8 @@ public class MeetingServiceImpl implements MeetingService {
     final private MeetingParticipateTeamRepository meetingParticipateTeamRepository;
     final private ProjectRepository projectRepository;
     final private AccountProfileRepository accountProfileRepository;
-    final private TeamRepository teamRepository; // [NEW]
+    final private TeamRepository teamRepository;
+    final private MeetingBoardRepository meetingBoardRepository;
 
     @Override
     @Transactional
@@ -439,5 +441,36 @@ public class MeetingServiceImpl implements MeetingService {
                 teamList,
                 noteContent
         );
+    }
+
+    @Override
+    @Transactional
+    public void delete(String publicId, Long accountId, Long ifMatchVersion) {
+        // 1) 대상 로드
+        Meeting meeting = meetingRepository.findByPublicId(publicId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 미팅을 찾을 수 없습니다."));
+
+        // 2) 권한 체크
+        assertEditable(meeting, accountId);
+
+        // 3) If-Match(낙관적 잠금)
+        if (ifMatchVersion != null && !ifMatchVersion.equals(meeting.getVersion())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "미팅 버전이 맞지 않습니다.");
+        }
+
+        Long meetingId = meeting.getId();
+
+        // ✅ 4) 자식/연관 먼저 “ID로 벌크 삭제” — 중간 flush() 절대 금지
+        meetingBoardRepository.deleteAllByMeetingId(meetingId);
+        meetingParticipateTeamRepository.deleteAllByMeetingId(meetingId);
+        meetingParticipantRepository.deleteAllByMeetingId(meetingId);
+        meetingNoteRepository.deleteByMeetingId(meetingId);
+
+        // ✅ 5) 본체도 “ID/버전으로 벌크 삭제”
+        int deleted = meetingRepository.hardDeleteByIdAndVersion(meetingId, ifMatchVersion);
+        if (deleted == 0) {
+            // 버전이 바뀌었거나 이미 삭제된 경우
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 변경된 미팅입니다.");
+        }
     }
 }

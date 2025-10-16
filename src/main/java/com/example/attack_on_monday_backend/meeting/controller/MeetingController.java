@@ -152,6 +152,23 @@ public class MeetingController {
         return ResponseEntity.ok(ListMeetingResponseForm.from(response));
     }
 
+    // 삭제
+    @DeleteMapping("/{publicId}")
+    public ResponseEntity<Void> deleteMeeting(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @PathVariable String publicId,
+            @RequestHeader(value = "If-Match", required = false) String ifMatch
+    ) {
+        Long accountId = resolveAccountId(authorizationHeader);
+        Long version = null;
+        if (ifMatch != null && !ifMatch.isBlank()) {
+            String v = ifMatch.trim();
+            if (v.startsWith("\"") && v.endsWith("\"")) v = v.substring(1, v.length()-1);
+            try { version = Long.valueOf(v); } catch (NumberFormatException ignored) {}
+        }
+        meetingService.delete(publicId, accountId, version);
+        return ResponseEntity.noContent().build();
+    }
 
 
 }
