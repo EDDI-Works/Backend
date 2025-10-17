@@ -1,5 +1,6 @@
 package com.example.attack_on_monday_backend.meeting.entity;
 
+import com.example.attack_on_monday_backend.team.entity.Team;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -23,6 +24,7 @@ public class MeetingParticipateTeam {
     private Meeting meeting;
 
     @Setter
-    @Column(name="team_id", nullable=false)
-    private Long teamId; // Team 엔티티 생기면 FK로 교체
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false, foreignKey = @ForeignKey(name = "fk_mpt_team"))
+    private Team team;
 }

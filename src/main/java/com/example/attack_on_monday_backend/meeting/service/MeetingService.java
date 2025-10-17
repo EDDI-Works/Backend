@@ -15,4 +15,5 @@ public interface MeetingService {
     UpdateMeetingResponse update (String publicId, UpdateMeetingRequest request);
     ReadMeetingResponse read (String publicId, Long accountId);
     ListMeetingResponse list (Long accountId, Integer page, Integer perPage, LocalDate from, LocalDate to);
+    void delete(String publicId, Long accountId, Long expectedVersion);
 }

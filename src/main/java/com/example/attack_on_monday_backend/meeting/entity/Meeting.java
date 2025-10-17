@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.UUID;
 
 @Entity
@@ -66,13 +67,13 @@ public class Meeting {
     @Column(name = "locked", nullable = false)
     private boolean locked = false;
 
-    @CreationTimestamp
-    @Column(name="created_at", updatable=false)
+    @Column(name="created_at", nullable = false, updatable=false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name="updated_at")
+    @Column(name="updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     // 백에서 publicId 생성, title null 방지
     @PrePersist
@@ -81,6 +82,15 @@ public class Meeting {
             publicId = UUID.randomUUID().toString();
         }
         if (title == null) title = "";
+
+        LocalDateTime now = LocalDateTime.now(KST);
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    private void onUpdate() {
+        this.updatedAt = LocalDateTime.now(KST);
     }
 
     // 수정하기 위해 추가
